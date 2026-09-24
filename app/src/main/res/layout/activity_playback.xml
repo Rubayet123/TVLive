@@ -1,0 +1,824 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_playback_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@android:color/black">
+
+    <!-- ── Mobile Portrait Top Header Bar (Televizo Style) ───────────────── -->
+    <LinearLayout
+        android:id="@+id/portrait_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:background="#161A22"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btn_portrait_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_back_arrow"
+            android:background="@drawable/selector_ctrl_button"
+            android:scaleType="center"
+            android:contentDescription="Back" />
+
+        <ImageView
+            android:id="@+id/portrait_top_logo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_tv_fallback" />
+
+        <TextView
+            android:id="@+id/tv_portrait_header_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <!-- ── Main Video Player Container (16:9 in Portrait, Fullscreen in Landscape) ── -->
+    <FrameLayout
+        android:id="@+id/player_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- ── Video surface ─────────────────────────────────────────────────── -->
+        <androidx.media3.ui.PlayerView
+            android:id="@+id/player_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:use_controller="false"
+            app:resize_mode="fit" />
+
+    <!-- ── Overlay layer (all on-screen UI sits here) ────────────────────── -->
+    <FrameLayout
+        android:id="@+id/overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <!-- Top-left OSD: channel name (brief 5 s display on channel switch) -->
+        <TextView
+            android:id="@+id/channel_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="32dp"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="7dp"
+            android:background="#90000000"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- ═══ PLAYER CONTROL BAR ════════════════════════════════════════════
+             Revealed on OK press. Auto-hides after 5 s of inactivity.
+             Background is a transparent-to-dark gradient so the video
+             beneath remains partially visible above the controls.              -->
+        <LinearLayout
+            android:id="@+id/landscape_top_bar"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="8dp"
+            android:background="@drawable/bg_top_gradient"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btn_landscape_back"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_back_arrow"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:padding="10dp"
+                android:focusable="true"
+                android:contentDescription="Back" />
+
+            <TextView
+                android:id="@+id/tv_landscape_header_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/player_controls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:background="@drawable/bg_player_gradient"
+            android:paddingTop="72dp"
+            android:paddingBottom="28dp"
+            android:paddingHorizontal="40dp"
+            android:visibility="gone">
+
+            <!-- Row 1: channel name · live badge · DVR timestamp -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="10dp">
+
+                <TextView
+                    android:id="@+id/tv_ctrl_channel_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#FFFFFF"
+                    android:textSize="21sp"
+                    android:textStyle="bold"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+
+                <!-- LIVE badge (hidden for DVR streams) -->
+                <LinearLayout
+                    android:id="@+id/live_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_live_badge"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="5dp"
+                    android:layout_marginStart="16dp">
+
+                    <ImageView
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:src="@drawable/ic_live_dot"
+                        android:layout_marginEnd="6dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LIVE"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.1" />
+                </LinearLayout>
+
+                <!-- DVR timestamp — shown only when player has a seekable window -->
+                <TextView
+                    android:id="@+id/tv_position"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="13sp"
+                    android:fontFamily="monospace"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Row 2: Seek / progress bar -->
+            <SeekBar
+                android:id="@+id/seek_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:progressTint="#FF4444"
+                android:thumbTint="#FF4444"
+                android:progressBackgroundTint="#44FFFFFF"
+                android:secondaryProgressTint="#66FFFFFF"
+                android:focusable="true"
+                android:max="1000" />
+
+            <!-- Row 3: playback controls (left) + track buttons (right) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- ── Playback ───────────────────────────── -->
+                <ImageButton
+                    android:id="@+id/btn_prev"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:src="@drawable/ic_skip_prev"
+                    android:background="@drawable/selector_ctrl_button"
+                    android:scaleType="center"
+                    android:padding="10dp"
+                    android:focusable="true"
+                    android:nextFocusRight="@+id/btn_play_pause"
+                    android:contentDescription="Previous channel" />
+
+                <ImageButton
+                    android:id="@+id/btn_play_pause"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:src="@drawable/ic_pause"
+                    android:background="@drawable/selector_ctrl_button"
+                    android:scaleType="center"
+                    android:padding="12dp"
+                    android:focusable="true"
+                    android:nextFocusLeft="@+id/btn_prev"
+                    android:nextFocusRight="@+id/btn_next"
+                    android:contentDescription="Play pause" />
+
+                <ImageButton
+                    android:id="@+id/btn_next"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:src="@drawable/ic_skip_next"
+                    android:background="@drawable/selector_ctrl_button"
+                    android:scaleType="center"
+                    android:padding="10dp"
+                    android:focusable="true"
+                    android:nextFocusLeft="@+id/btn_play_pause"
+                    android:nextFocusRight="@+id/btn_audio_subtitle"
+                    android:contentDescription="Next channel" />
+
+                <!-- Flexible spacer -->
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!-- ── Track selection ─────────────────────── -->
+                <HorizontalScrollView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none"
+                    android:clipToPadding="false">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageButton
+                            android:id="@+id/btn_audio_subtitle"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_audio_track"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_next"
+                            android:nextFocusRight="@+id/btn_source"
+                            android:contentDescription="Audio &amp; Subtitles" />
+
+                        <ImageButton
+                            android:id="@+id/btn_source"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_server_source"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_audio_subtitle"
+                            android:nextFocusRight="@+id/btn_quality"
+                            android:contentDescription="Server Sources" />
+
+                        <ImageButton
+                            android:id="@+id/btn_quality"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_quality"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_source"
+                            android:nextFocusRight="@+id/btn_ctrl_info"
+                            android:contentDescription="Quality" />
+
+                        <ImageButton
+                            android:id="@+id/btn_ctrl_info"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_info"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_quality"
+                            android:nextFocusRight="@+id/btn_aspect_ratio"
+                            android:contentDescription="Stream Info" />
+
+                        <ImageButton
+                            android:id="@+id/btn_aspect_ratio"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_aspect_ratio"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_ctrl_info"
+                            android:nextFocusRight="@+id/btn_pip"
+                            android:contentDescription="Aspect ratio" />
+
+                        <ImageButton
+                            android:id="@+id/btn_pip"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_pip"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_aspect_ratio"
+                            android:nextFocusRight="@+id/btn_rotate"
+                            android:contentDescription="Picture in picture" />
+
+                        <ImageButton
+                            android:id="@+id/btn_rotate"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_screen_rotation"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_pip"
+                            android:nextFocusRight="@+id/btn_lock"
+                            android:contentDescription="Rotate screen" />
+
+                        <ImageButton
+                            android:id="@+id/btn_lock"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:src="@drawable/ic_lock"
+                            android:background="@drawable/selector_ctrl_button"
+                            android:scaleType="center"
+                            android:padding="10dp"
+                            android:layout_marginStart="8dp"
+                            android:focusable="true"
+                            android:nextFocusLeft="@+id/btn_rotate"
+                            android:contentDescription="Lock controls" />
+
+                    </LinearLayout>
+                </HorizontalScrollView>
+
+            </LinearLayout>
+        </LinearLayout>
+        <!-- ════════════════════════════════════════════════════════════════════ -->
+
+        <!-- Channel list overlay (opens on swipe up or Down-arrow press) -->
+        <androidx.leanback.widget.HorizontalGridView
+            android:id="@+id/recent_channels_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="165dp"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="0dp"
+            android:background="@drawable/bg_recent_channels_gradient"
+            android:paddingTop="12dp"
+            android:paddingBottom="10dp"
+            android:paddingHorizontal="20dp"
+            android:clipToPadding="false"
+            android:focusable="true"
+            android:visibility="gone" />
+
+        <!-- ═══ BRIGHTNESS GAUGE BAR (Left screen edge) ═══════════════════════ -->
+        <LinearLayout
+            android:id="@+id/layout_brightness_gauge"
+            android:layout_width="42dp"
+            android:layout_height="180dp"
+            android:layout_gravity="start|center_vertical"
+            android:layout_marginStart="20dp"
+            android:background="@drawable/bg_gauge_bar"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="4dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_brightness"
+                app:tint="#38BDF8" />
+
+            <ProgressBar
+                android:id="@+id/progress_brightness"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="100dp"
+                android:layout_height="5dp"
+                android:layout_marginVertical="20dp"
+                android:rotation="270"
+                android:max="100"
+                android:progress="50"
+                android:progressTint="#38BDF8"
+                android:progressBackgroundTint="#33FFFFFF" />
+
+            <TextView
+                android:id="@+id/tv_brightness_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="50%"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ═══ VOLUME GAUGE BAR (Right screen edge) ══════════════════════════ -->
+        <LinearLayout
+            android:id="@+id/layout_volume_gauge"
+            android:layout_width="42dp"
+            android:layout_height="180dp"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="20dp"
+            android:background="@drawable/bg_gauge_bar"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="4dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_volume"
+                app:tint="#38BDF8" />
+
+            <ProgressBar
+                android:id="@+id/progress_volume"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="100dp"
+                android:layout_height="5dp"
+                android:layout_marginVertical="20dp"
+                android:rotation="270"
+                android:max="100"
+                android:progress="50"
+                android:progressTint="#38BDF8"
+                android:progressBackgroundTint="#33FFFFFF" />
+
+            <TextView
+                android:id="@+id/tv_volume_percent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="50%"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ═══ DOUBLE TAP SEEK ANIMATION INDICATORS ══════════════════════════ -->
+        <LinearLayout
+            android:id="@+id/layout_seek_left"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_gravity="start|center_vertical"
+            android:layout_marginStart="64dp"
+            android:background="@drawable/bg_seek_indicator"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_fast_rewind"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tv_seek_left_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-10s"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_seek_right"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="64dp"
+            android:background="@drawable/bg_seek_indicator"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_fast_forward"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tv_seek_right_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+10s"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ═══ SCREEN UNLOCK OVERLAY (Shown when screen is locked and user taps) ═══ -->
+        <LinearLayout
+            android:id="@+id/layout_unlock_overlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_gauge_bar"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="12dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/btn_unlock"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_unlock"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:contentDescription="Unlock controls" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="Tap to unlock controls"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ═══ TRACK SELECTION PANEL ════════════════════════════════════════
+             Right-side overlay for Audio / Subtitle / Quality selection.
+             Slides in from the right when a track button is pressed.           -->
+        <FrameLayout
+            android:id="@+id/track_panel_container"
+            android:layout_width="300dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:background="@drawable/bg_track_panel"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:orientation="vertical"
+                android:paddingVertical="24dp">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="24dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/tv_panel_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:layout_toStartOf="@id/btn_close_track_panel"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.04" />
+
+                    <ImageButton
+                        android:id="@+id/btn_close_track_panel"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:background="@drawable/selector_ctrl_button"
+                        android:src="@drawable/ic_close"
+                        app:tint="#9CA3AF"
+                        android:contentDescription="Close Panel"
+                        android:focusable="true" />
+                </RelativeLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#33FFFFFF"
+                    android:layout_marginBottom="6dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/track_recycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:focusable="true"
+                    android:descendantFocusability="afterDescendants"
+                    android:overScrollMode="never" />
+
+            </LinearLayout>
+        </FrameLayout>
+        <!-- ════════════════════════════════════════════════════════════════════ -->
+
+    </FrameLayout>
+
+    <!-- Centered loading spinner -->
+    <LinearLayout
+        android:id="@+id/center_status_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <ProgressBar
+            android:id="@+id/buffer_loader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <!-- Floating Bottom HUD Status Pill (TiviMate/Televizo Style) -->
+    <TextView
+        android:id="@+id/tv_hud_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="96dp"
+        android:background="@drawable/bg_hud_pill"
+        android:elevation="8dp"
+        android:paddingHorizontal="18dp"
+        android:paddingVertical="9dp"
+        android:textColor="#F8FAFC"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.02"
+        android:shadowColor="#80000000"
+        android:shadowDx="0"
+        android:shadowDy="2"
+        android:shadowRadius="4"
+        android:visibility="gone" />
+
+    </FrameLayout>
+
+    <!-- ── Mobile Portrait Bottom Panel (Channel Switcher & Categories) ────── -->
+    <LinearLayout
+        android:id="@+id/mobile_portrait_panel"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:background="#121318"
+        android:visibility="gone">
+
+        <!-- Compact Quick Action Control Bar (Televizo Style) -->
+        <LinearLayout
+            android:id="@+id/portrait_quick_controls"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:background="#1A1C23">
+
+            <!-- Primary Playback Toggle (Far Left) -->
+            <ImageButton
+                android:id="@+id/btn_portrait_play_pause"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_pause"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:contentDescription="Play/Pause" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Secondary Quick Tools (Right Cluster) -->
+            <ImageButton
+                android:id="@+id/btn_portrait_info"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_info"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Stream Info" />
+
+            <ImageButton
+                android:id="@+id/btn_portrait_favorite"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_favorite_border"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Bookmark Favorite" />
+
+            <ImageButton
+                android:id="@+id/btn_portrait_aspect"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_aspect_ratio"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Aspect Ratio" />
+
+            <ImageButton
+                android:id="@+id/btn_portrait_audio"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_audio_track"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Audio Tracks" />
+
+            <ImageButton
+                android:id="@+id/btn_portrait_source"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_server_source"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Server Sources" />
+
+            <ImageButton
+                android:id="@+id/btn_portrait_quality"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_quality"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:layout_marginEnd="4dp"
+                android:contentDescription="Quality" />
+
+            <ImageButton
+                android:id="@+id/btn_portrait_fullscreen"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_fullscreen"
+                android:background="@drawable/selector_ctrl_button"
+                android:scaleType="center"
+                android:contentDescription="Fullscreen" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF" />
+
+        <!-- Category Horizontal Filter Bar -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/portrait_category_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:clipToPadding="false" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF" />
+
+        <!-- Vertical Channel List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/portrait_channels_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingVertical="8dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

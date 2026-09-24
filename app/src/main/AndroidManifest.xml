@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:banner="@drawable/app_logo_tv"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:logo="@drawable/app_logo_tv"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.TVLive">
+        <activity
+            android:name=".MainActivity"
+            android:banner="@drawable/app_logo_tv"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:label="@string/app_name"
+            android:logo="@drawable/app_logo_tv"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:screenOrientation="unspecified">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".DetailsActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
+        <activity
+            android:name=".PlaybackActivity"
+            android:exported="false"
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden" />
+        <activity
+            android:name=".BrowseErrorActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.settings.SourceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.ProviderSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.ThemeSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.StreamHealthSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.CategorySettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.PluginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.RoarzonePluginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+        <activity
+            android:name=".ui.settings.BackupSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TVLive.Settings" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>

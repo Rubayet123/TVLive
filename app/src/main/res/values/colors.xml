@@ -1,0 +1,16 @@
+<resources>
+    <color name="background_gradient_start">#616161</color>
+    <color name="background_gradient_end">#505050</color>
+    <color name="fastlane_background">#383838</color>
+    <color name="search_opaque">#FFA000</color>
+    <color name="selected_background">#FFA000</color>
+    <color name="default_background">#616161</color>
+    <color name="overlay_background">#CC383838</color>
+    <color name="frosted_surface">#383838</color>
+    <color name="frosted_border">#4A4A4A</color>
+    <color name="frosted_card">#212121</color>
+    <color name="primary_text">#FFFFFF</color>
+    <color name="secondary_text">#E0E0E0</color>
+    <color name="teal_700">#383838</color>
+    <color name="teal_200">#2B2B2B</color>
+</resources>

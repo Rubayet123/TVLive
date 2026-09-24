@@ -1,0 +1,6 @@
+{
+  "name": "TVLive",
+  "description": "Live TV streaming app for Android TV and mobile with channel playlists, custom providers, and YouTube integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

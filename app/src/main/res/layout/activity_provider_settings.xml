@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/default_background"
+    android:gravity="center"
+    android:padding="50dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Provider Settings"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="@color/primary_text"
+        android:layout_marginBottom="48dp" />
+
+    <Button
+        android:id="@+id/btn_add_provider"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:text="Add Provider"
+        android:padding="16dp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="@color/button_background_selector"
+        android:stateListAnimator="@animator/button_focus_animator"
+        android:nextFocusDown="@id/btn_provider_list" />
+
+    <Button
+        android:id="@+id/btn_provider_list"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:text="Provider List"
+        android:padding="16dp"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="@color/button_background_selector"
+        android:stateListAnimator="@animator/button_focus_animator"
+        android:nextFocusUp="@id/btn_add_provider" />
+
+</LinearLayout>

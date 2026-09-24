@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    android:background="@drawable/selector_source_card"
+    android:clickable="true"
+    android:focusable="true"
+    android:stateListAnimator="@animator/button_focus_animator"
+    android:padding="16dp">
+
+    <ImageView
+        android:id="@+id/icon_source"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/ic_menu_agenda"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/teal_700" />
+
+    <TextView
+        android:id="@+id/text_source_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:text="Source Name"
+        android:textColor="@color/primary_text"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@+id/text_status_badge"
+        app:layout_constraintStart_toEndOf="@+id/icon_source"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/text_source_url"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="middle"
+        android:singleLine="true"
+        android:text="http://example.com/playlist.m3u"
+        android:textColor="@color/secondary_text"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/text_status_badge"
+        app:layout_constraintStart_toStartOf="@+id/text_source_name"
+        app:layout_constraintTop_toBottomOf="@+id/text_source_name" />
+
+    <TextView
+        android:id="@+id/text_status_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_status_active"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:text="ACTIVE"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
