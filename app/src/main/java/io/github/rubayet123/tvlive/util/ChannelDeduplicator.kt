@@ -103,8 +103,9 @@ object ChannelDeduplicator {
 
         val canonicalId = "unified_" + bestName.lowercase().replace(Regex("[^a-z0-9]"), "")
 
-        // Sort sources by user's playlist order in Settings (priority)
-        val sortedSources = refinedSources.sortedBy { it.priority }
+        // Sort sources by user's provider order in Settings (Provider priority first, then file priority)
+        val activeSources = io.github.rubayet123.tvlive.data.SourceRepository(context).getSources()
+        val sortedSources = ProviderPriorityHelper.sortSources(refinedSources, activeSources)
 
         val primary = sortedSources.firstOrNull()
         val primaryUrl = primary?.streamUrl ?: channels[0].streamUrl
@@ -144,23 +145,9 @@ object ChannelDeduplicator {
             licenseType = primaryLicenseType,
             licenseKey = primaryLicenseKey,
             headers = primaryHeaders,
-            sources = sortedSources
+            sources = sortedSources,
+            subtitle = channels.firstOrNull { !it.subtitle.isNullOrBlank() }?.subtitle
         )
-    }
-
-    private fun getProviderPriority(providerName: String): Int {
-        val p = providerName.lowercase()
-        return when {
-            p.contains("orbit") -> 1
-            p.contains("roarzone") -> 2
-            p.contains("ideal") -> 3
-            p.contains("splex") -> 4
-            p.contains("redforce") -> 5
-            p.contains("bas") || p.contains("local") -> 6
-            p.contains("bdix") -> 7
-            p.contains("web") -> 8
-            else -> 10
-        }
     }
 
     private fun selectBestChannelName(names: List<String>): String {

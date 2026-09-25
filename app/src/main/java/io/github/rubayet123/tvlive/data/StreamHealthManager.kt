@@ -23,10 +23,16 @@ object StreamHealthManager {
         val count = (failureCounts[url] ?: 0) + 1
         failureCounts[url] = count
         
-        val cooldownDurationMs = cooldownMinutes * 60 * 1000L
-        val expiry = System.currentTimeMillis() + cooldownDurationMs
-        penalizedStreams[url] = expiry
-        Log.d(TAG, "Penalized stream $url for $cooldownMinutes mins (Fail count: $count)")
+        // Multi-strike rule: Require at least 2 consecutive failures before penalizing.
+        // A single transient stall or cold start delay will not blacklist a provider.
+        if (count >= 2) {
+            val cooldownDurationMs = cooldownMinutes * 60 * 1000L
+            val expiry = System.currentTimeMillis() + cooldownDurationMs
+            penalizedStreams[url] = expiry
+            Log.d(TAG, "Penalized stream $url for $cooldownMinutes mins (Fail count: $count)")
+        } else {
+            Log.d(TAG, "Recorded transient failure for $url (count: $count). Not blacklisted yet.")
+        }
     }
 
     fun recordSuccess(url: String) {
@@ -47,6 +53,7 @@ object StreamHealthManager {
     fun rankCandidates(context: Context, sources: List<StreamSource>): List<StreamSource> {
         if (sources.size <= 1) return sources
         val strategy = StreamHealthConfig.getFallbackStrategy(context)
+        val activeSources = SourceRepository(context).getSources()
 
         val nonPenalized = sources.filter { !isPenalized(it.streamUrl) }
         val penalized = sources.filter { isPenalized(it.streamUrl) }
@@ -55,13 +62,16 @@ object StreamHealthManager {
             "QUALITY" -> Comparator<StreamSource> { s1, s2 ->
                 val q1 = parseQualityScore(s1.providerName)
                 val q2 = parseQualityScore(s2.providerName)
-                if (q1 != q2) q2.compareTo(q1) else s1.priority.compareTo(s2.priority)
-            }
-            "PROVIDER_ORDER" -> Comparator<StreamSource> { s1, s2 ->
-                s1.priority.compareTo(s2.priority)
+                if (q1 != q2) q2.compareTo(q1) else {
+                    val p1 = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.getProviderPriority(s1.providerName, activeSources)
+                    val p2 = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.getProviderPriority(s2.providerName, activeSources)
+                    if (p1 != p2) p1.compareTo(p2) else s1.priority.compareTo(s2.priority)
+                }
             }
             else -> Comparator<StreamSource> { s1, s2 ->
-                s1.priority.compareTo(s2.priority)
+                val p1 = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.getProviderPriority(s1.providerName, activeSources)
+                val p2 = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.getProviderPriority(s2.providerName, activeSources)
+                if (p1 != p2) p1.compareTo(p2) else s1.priority.compareTo(s2.priority)
             }
         }
 

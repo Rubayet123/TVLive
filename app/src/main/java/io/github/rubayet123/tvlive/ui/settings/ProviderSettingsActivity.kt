@@ -488,14 +488,35 @@ private fun ProviderSettingsScreen(onBack: () -> Unit) {
                                     val updated = source.copy(isActive = !source.isActive)
                                     repository.updateSource(updated)
                                     refreshData()
+                                    scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val currentMaster = io.github.rubayet123.tvlive.data.LiveTvManager.getMasterPlaylist()
+                                        if (currentMaster.isNotEmpty()) {
+                                            val reordered = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.reorderChannelSources(currentMaster, context)
+                                            io.github.rubayet123.tvlive.data.LiveTvManager.setMasterPlaylist(reordered, context)
+                                        }
+                                    }
                                 },
                                 onMoveUp = {
                                     repository.moveSourceUp(source)
                                     refreshData()
+                                    scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val currentMaster = io.github.rubayet123.tvlive.data.LiveTvManager.getMasterPlaylist()
+                                        if (currentMaster.isNotEmpty()) {
+                                            val reordered = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.reorderChannelSources(currentMaster, context)
+                                            io.github.rubayet123.tvlive.data.LiveTvManager.setMasterPlaylist(reordered, context)
+                                        }
+                                    }
                                 },
                                 onMoveDown = {
                                     repository.moveSourceDown(source)
                                     refreshData()
+                                    scope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                                        val currentMaster = io.github.rubayet123.tvlive.data.LiveTvManager.getMasterPlaylist()
+                                        if (currentMaster.isNotEmpty()) {
+                                            val reordered = io.github.rubayet123.tvlive.util.ProviderPriorityHelper.reorderChannelSources(currentMaster, context)
+                                            io.github.rubayet123.tvlive.data.LiveTvManager.setMasterPlaylist(reordered, context)
+                                        }
+                                    }
                                 },
                                 onChangeInterval = {
                                     sourceForInterval = source

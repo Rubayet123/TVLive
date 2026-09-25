@@ -74,7 +74,7 @@ class M3uParser(
         return File(path).readText()
     }
 
-    private fun parseM3uContent(content: String, defaultProviderName: String? = null, priority: Int = 0): List<Category> {
+    fun parseM3uChannels(content: String, defaultProviderName: String? = "PlayZ TV", priority: Int = 0): List<Channel> {
         val channels = mutableListOf<Channel>()
         val reader = BufferedReader(StringReader(content))
         var line: String? = reader.readLine()
@@ -83,6 +83,7 @@ class M3uParser(
         var currentLogo: String? = null
         var currentGroup: String? = null
         var currentId: String? = null
+        var currentProvider: String? = null
         
         var currentLicenseType: String? = null
         var currentLicenseKey: String? = null
@@ -125,15 +126,39 @@ class M3uParser(
                 currentGroup = extractAttribute(titleParams, "group-title") ?: "Uncategorized"
                 currentLogo = extractAttribute(titleParams, "tvg-logo")
                 currentId = extractAttribute(titleParams, "tvg-id") ?: currentChannelName
+                val explicitProvider = extractAttribute(titleParams, "tvg-provider")
+                if (!explicitProvider.isNullOrBlank()) {
+                    currentProvider = explicitProvider
+                }
                 
             } else if (!line.startsWith("#") && line.isNotEmpty()) {
                 // Stream URL
                 if (currentChannelName != null) {
+                    var streamUrl = line.trim()
+                    if (streamUrl.contains("|")) {
+                        val parts = streamUrl.split("|")
+                        streamUrl = parts[0].trim()
+                        for (part in parts.drop(1)) {
+                            val eq = part.indexOf('=')
+                            if (eq > 0) {
+                                val k = part.substring(0, eq).trim()
+                                val v = part.substring(eq + 1).trim()
+                                val normK = when(k.lowercase()) {
+                                    "user-agent" -> "User-Agent"
+                                    "referer", "referrer" -> "Referer"
+                                    "origin" -> "Origin"
+                                    "cookie" -> "Cookie"
+                                    else -> k
+                                }
+                                currentHeaders[normK] = v
+                            }
+                        }
+                    }
                     val headersMap = if (currentHeaders.isNotEmpty()) HashMap(currentHeaders) else null
-                    val provider = Channel.cleanProviderName(defaultProviderName, line, currentChannelName, currentGroup)
+                    val provider = currentProvider ?: Channel.cleanProviderName(defaultProviderName, streamUrl, currentChannelName, currentGroup)
                     val initialSource = io.github.rubayet123.tvlive.model.StreamSource(
                         providerName = provider,
-                        streamUrl = line,
+                        streamUrl = streamUrl,
                         headers = headersMap,
                         licenseType = currentLicenseType,
                         licenseKey = currentLicenseKey,
@@ -144,7 +169,7 @@ class M3uParser(
                             id = currentId ?: currentChannelName!!,
                             name = currentChannelName!!,
                             logoUrl = currentLogo,
-                            streamUrl = line,
+                            streamUrl = streamUrl,
                             group = currentGroup,
                             licenseType = currentLicenseType,
                             licenseKey = currentLicenseKey,
@@ -157,6 +182,7 @@ class M3uParser(
                     currentLogo = null
                     currentGroup = null
                     currentId = null
+                    currentProvider = null
                     currentLicenseType = null
                     currentLicenseKey = null
                     currentHeaders.clear()
@@ -165,6 +191,11 @@ class M3uParser(
             line = reader.readLine()
         }
 
+        return channels
+    }
+
+    fun parseM3uContent(content: String, defaultProviderName: String? = null, priority: Int = 0): List<Category> {
+        val channels = parseM3uChannels(content, defaultProviderName, priority)
         return channels.groupBy { it.group ?: "Uncategorized" }
             .map { Category(it.key, it.value) }
     }

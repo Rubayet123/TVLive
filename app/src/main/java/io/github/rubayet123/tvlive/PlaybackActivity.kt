@@ -230,13 +230,43 @@ class PlaybackActivity : FragmentActivity() {
     private val seekHandler = Handler(Looper.getMainLooper())
     private val bufferingWatchdogHandler = Handler(Looper.getMainLooper())
     private var singleStreamRetryCount = 0
+    private var isInitialConnection = true
+    private var hasAttemptedInPlaceRecovery = false
+    private var lastFailoverTimeMs = 0L
+    private var lastPlaybackPosition: Long = -1L
+    private var lastPositionChangeTimeMs: Long = 0L
 
     private val bufferingWatchdogRunnable = Runnable {
         if (player?.playbackState == Player.STATE_BUFFERING) {
             bufferLoader.visibility = View.GONE
-            if (!attemptFailoverToNextSource("Stream connection timed out")) {
-                handleSingleStreamRecovery("Stream stalled or buffering timed out")
+            handleStreamStallOrTimeout("Stream connection timed out")
+        }
+    }
+
+    private fun handleStreamStallOrTimeout(reason: String) {
+        val p = player ?: return
+        // Tier 1: In-place self-healing on the SAME stream before switching sources (only if stream was already playing)
+        if (!hasAttemptedInPlaceRecovery && !isInitialConnection && p.playbackState != Player.STATE_IDLE) {
+            hasAttemptedInPlaceRecovery = true
+            android.util.Log.d("TVLive_Playback", "Attempting in-place live-edge recovery on same source ($reason)")
+            showHudNotification("Re-syncing live stream...")
+            try {
+                if (p.isCurrentMediaItemLive) {
+                    p.seekToDefaultPosition()
+                }
+                p.prepare()
+                p.play()
+                // Give 5 seconds for in-place re-sync to complete
+                startBufferingWatchdog(5000L)
+                return
+            } catch (e: Exception) {
+                android.util.Log.e("TVLive_Playback", "In-place recovery failed", e)
             }
+        }
+
+        // Tier 2: In-place recovery already attempted or failed -> proceed with failover
+        if (!attemptFailoverToNextSource(reason)) {
+            handleSingleStreamRecovery("Stream stalled or buffering timed out")
         }
     }
 
@@ -245,13 +275,42 @@ class PlaybackActivity : FragmentActivity() {
             cancelBufferingWatchdog()
             return
         }
-        val effectiveTimeout = timeoutMs ?: (io.github.rubayet123.tvlive.data.StreamHealthConfig.getStallTimeoutSec(this) * 1000L)
+        val defaultSec = if (isInitialConnection) {
+            io.github.rubayet123.tvlive.data.StreamHealthConfig.getInitialConnectTimeoutSec(this)
+        } else {
+            io.github.rubayet123.tvlive.data.StreamHealthConfig.getStallTimeoutSec(this)
+        }
+        val effectiveTimeout = timeoutMs ?: (defaultSec * 1000L)
         bufferingWatchdogHandler.removeCallbacks(bufferingWatchdogRunnable)
         bufferingWatchdogHandler.postDelayed(bufferingWatchdogRunnable, effectiveTimeout)
     }
 
     private fun cancelBufferingWatchdog() {
         bufferingWatchdogHandler.removeCallbacks(bufferingWatchdogRunnable)
+    }
+
+    private val freezeCheckerHandler = Handler(Looper.getMainLooper())
+    private val freezeCheckerRunnable = object : Runnable {
+        override fun run() {
+            val p = player
+            if (p != null && p.isPlaying && p.playbackState == Player.STATE_READY) {
+                val currentPos = p.currentPosition
+                val now = android.os.SystemClock.uptimeMillis()
+                if (currentPos != lastPlaybackPosition) {
+                    lastPlaybackPosition = currentPos
+                    lastPositionChangeTimeMs = now
+                } else {
+                    if (lastPositionChangeTimeMs > 0L && now - lastPositionChangeTimeMs > 4500L) {
+                        lastPositionChangeTimeMs = now
+                        android.util.Log.w("TVLive_Playback", "Detected video frame freeze/decoder stall! Attempting in-place recovery...")
+                        handleStreamStallOrTimeout("Video playback frozen")
+                    }
+                }
+            } else {
+                lastPositionChangeTimeMs = android.os.SystemClock.uptimeMillis()
+            }
+            freezeCheckerHandler.postDelayed(this, 1500)
+        }
     }
 
     private val pipActionReceiver = object : android.content.BroadcastReceiver() {
@@ -652,6 +711,7 @@ class PlaybackActivity : FragmentActivity() {
 
     override fun onPause() {
         super.onPause()
+        freezeCheckerHandler.removeCallbacks(freezeCheckerRunnable)
         val isPip = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && isInPictureInPictureMode
         if (!isPip && androidx.media3.common.util.Util.SDK_INT <= 23) releasePlayer()
         stopSeekBarUpdater()
@@ -659,6 +719,7 @@ class PlaybackActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
+        freezeCheckerHandler.removeCallbacks(freezeCheckerRunnable)
         val isPip = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N && isInPictureInPictureMode
         if (!isPip && androidx.media3.common.util.Util.SDK_INT > 23) releasePlayer()
         stopSeekBarUpdater()
@@ -666,6 +727,7 @@ class PlaybackActivity : FragmentActivity() {
 
     override fun onDestroy() {
         activeProbeJob?.cancel()
+        freezeCheckerHandler.removeCallbacks(freezeCheckerRunnable)
         super.onDestroy()
         try {
             unregisterReceiver(pipActionReceiver)
@@ -1920,6 +1982,10 @@ class PlaybackActivity : FragmentActivity() {
             hasAttemptedFailoverProbing = false
             verifiedCandidatesQueue.clear()
             singleStreamRetryCount = 0
+            isInitialConnection = true
+            hasAttemptedInPlaceRecovery = false
+            lastPositionChangeTimeMs = 0L
+            lastPlaybackPosition = -1L
         }
         lastChannelSwitchTime = android.os.SystemClock.uptimeMillis()
         currentPlayingChannel = channel
@@ -1927,6 +1993,29 @@ class PlaybackActivity : FragmentActivity() {
         // Rank candidates based on StreamHealthManager strategy & penalties
         activeSources = io.github.rubayet123.tvlive.data.StreamHealthManager.rankCandidates(this, rawSources)
         currentSourceIndex = sourceIndex.coerceIn(0, (activeSources.size - 1).coerceAtLeast(0))
+
+        if (!isFailover && sourceIndex == 0 && activeSources.size > 1 &&
+            io.github.rubayet123.tvlive.data.StreamHealthConfig.getFailoverMode(this) == "CONCURRENT" &&
+            !hasAttemptedFailoverProbing
+        ) {
+            hasAttemptedFailoverProbing = true
+            showHudNotification("Probing stream sources...")
+            activeProbeJob?.cancel()
+            activeProbeJob = lifecycleScope.launch {
+                val (defaultUserAgent, _) = buildHeadersForUrl(channel.streamUrl, channel)
+                val winner = io.github.rubayet123.tvlive.data.network.StreamProbeManager.findFirstWorkingSource(
+                    activeSources,
+                    defaultUserAgent
+                )
+                val targetIndex = winner?.first ?: 0
+                if (winner != null) {
+                    val winnerSource = winner.second
+                    showHudNotification("Connected to ${winnerSource.providerName}")
+                }
+                playChannel(channel, targetIndex, isFailover = true)
+            }
+            return
+        }
 
         val currentSource = activeSources.getOrNull(currentSourceIndex)
         val streamToPlay = currentSource?.streamUrl ?: channel.streamUrl
@@ -1981,7 +2070,6 @@ class PlaybackActivity : FragmentActivity() {
         try {
             activeProbeJob?.cancel()
             bufferLoader.visibility = View.VISIBLE
-            startBufferingWatchdog()
             player?.stop()
 
             val connectTimeoutSec = io.github.rubayet123.tvlive.data.StreamHealthConfig.getConnectTimeoutSec(this)
@@ -2087,9 +2175,66 @@ class PlaybackActivity : FragmentActivity() {
                             return@launch
                         }
                     }
+                    url.startsWith("playztv://") -> {
+                        val slug = url.substringAfter("playztv://")
+                        val repo = io.github.rubayet123.tvlive.scraper.PlayztvRepository(okHttpClient, this@PlaybackActivity)
+                        val resolvedSources = repo.resolveSourcesForChannel(slug)
+                        if (!resolvedSources.isNullOrEmpty()) {
+                            val firstSrc = resolvedSources.first()
+                            url = firstSrc.streamUrl
+                            val updatedChannel = channel.copy(
+                                streamUrl = firstSrc.streamUrl,
+                                sources = resolvedSources,
+                                licenseType = firstSrc.licenseType ?: channel.licenseType,
+                                licenseKey = firstSrc.licenseKey ?: channel.licenseKey,
+                                headers = firstSrc.headers ?: channel.headers
+                            )
+                            currentPlayingChannel = updatedChannel
+                            currentSourceIndex = 0
+                            withContext(Dispatchers.Main) {
+                                btnSource.visibility = if (resolvedSources.size > 1) View.VISIBLE else View.GONE
+                            }
+                        } else {
+                            val r = repo.resolveStream(slug)
+                            if (r != null) url = r else {
+                                if (!attemptFailoverToNextSource("PlayZ TV resolution failed")) {
+                                    if (!hasAttempted403ScrapeRecovery) {
+                                        hasAttempted403ScrapeRecovery = true
+                                        withContext(Dispatchers.Main) {
+                                            handle403ScrapeRecovery(channel)
+                                        }
+                                    } else {
+                                        withContext(Dispatchers.Main) {
+                                            handleSingleStreamRecovery("Stream resolution failed")
+                                        }
+                                    }
+                                }
+                                return@launch
+                            }
+                        }
+                    }
                 }
 
-                val (userAgent, defaultHeaders) = buildHeadersForUrl(url, channel.copy(headers = activeHeaders))
+                val mutableActiveHeaders = (currentPlayingChannel?.headers ?: activeHeaders)?.toMutableMap() ?: mutableMapOf()
+                // If url contains pipe-delimited headers: "url|User-Agent=...|Referer=..."
+                if (url.contains("|")) {
+                    val parts = url.split("|")
+                    url = parts[0].trim()
+                    for (p in parts.drop(1)) {
+                        val eq = p.indexOf('=')
+                        if (eq > 0) {
+                            val k = p.substring(0, eq).trim()
+                            val v = p.substring(eq + 1).trim()
+                            mutableActiveHeaders[k] = v
+                        }
+                    }
+                }
+
+                // Fix encoded slash issue (%2F -> /)
+                url = url.replace(Regex("(?i)%2f"), "/")
+
+                val effectiveChannel = currentPlayingChannel ?: channel
+                val (userAgent, defaultHeaders) = buildHeadersForUrl(url, effectiveChannel.copy(headers = mutableActiveHeaders))
                 val httpDsf = androidx.media3.datasource.DefaultHttpDataSource.Factory()
                     .setAllowCrossProtocolRedirects(true).setUserAgent(userAgent)
                     .setConnectTimeoutMs(connectTimeoutMs).setReadTimeoutMs(connectTimeoutMs)
@@ -2141,6 +2286,9 @@ class PlaybackActivity : FragmentActivity() {
                 }
                 url.startsWith("idealtv://") -> {
                     url = io.github.rubayet123.tvlive.scraper.IdealTvRepository(okHttpClient).resolveStream(url.substringAfter("idealtv://")) ?: return null
+                }
+                url.startsWith("playztv://") -> {
+                    url = io.github.rubayet123.tvlive.scraper.PlayztvRepository(okHttpClient).resolveStream(url.substringAfter("playztv://")) ?: return null
                 }
             }
 
@@ -2216,8 +2364,16 @@ class PlaybackActivity : FragmentActivity() {
             }
 
             if (hasAttemptedFailoverProbing) {
-                handleSingleStreamRecovery("Channel currently unavailable", skipReconnectRetries = true)
-                return true
+                val nextIndex = currentSourceIndex + 1
+                if (nextIndex < sources.size) {
+                    val nextSource = sources[nextIndex]
+                    showHudNotification("Switching to backup stream: ${nextSource.providerName}")
+                    playChannel(channel, nextIndex, isFailover = true)
+                    return true
+                } else {
+                    handleSingleStreamRecovery("Channel currently unavailable", skipReconnectRetries = true)
+                    return true
+                }
             }
 
             val remainingIndices = (0 until sources.size).filter { it != currentSourceIndex }
@@ -2343,7 +2499,9 @@ class PlaybackActivity : FragmentActivity() {
                 }
             }
         }
-        return if (list.isNotEmpty()) list else channel.effectiveSources
+        val baseList = if (list.isNotEmpty()) list else channel.effectiveSources
+        val configuredSources = io.github.rubayet123.tvlive.data.SourceRepository(this).getSources()
+        return io.github.rubayet123.tvlive.util.ProviderPriorityHelper.sortSources(baseList, configuredSources)
     }
 
     private fun normalizeChannelNameForMatching(raw: String): String {
@@ -2362,8 +2520,13 @@ class PlaybackActivity : FragmentActivity() {
 
     private fun showSourceSelectionDialog() {
         val channel = currentPlayingChannel ?: io.github.rubayet123.tvlive.data.LiveTvManager.getCurrentChannel() ?: return
-        val sources = collectSourcesForChannel(channel)
+        val currentPlayingUrl = activeSources.getOrNull(currentSourceIndex)?.streamUrl ?: streamUrl
+        val sources = io.github.rubayet123.tvlive.data.StreamHealthManager.rankCandidates(this, collectSourcesForChannel(channel))
         activeSources = sources
+        val foundIdx = sources.indexOfFirst { it.streamUrl.equals(currentPlayingUrl, ignoreCase = true) }
+        if (foundIdx >= 0) {
+            currentSourceIndex = foundIdx
+        }
 
         if (sources.isEmpty()) {
             toast("No stream source available")
@@ -2471,20 +2634,29 @@ class PlaybackActivity : FragmentActivity() {
 
         val httpDsf = androidx.media3.datasource.DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true).setUserAgent(userAgent)
-            .setConnectTimeoutMs(connectTimeoutMs).setReadTimeoutMs(connectTimeoutMs)
+            .setConnectTimeoutMs(connectTimeoutMs).setReadTimeoutMs(6000)
             .setDefaultRequestProperties(defaultHeaders)
         val unwrappingHttpDsf = io.github.rubayet123.tvlive.data.network.TsUnwrappingDataSource.Factory(httpDsf)
         val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, unwrappingHttpDsf)
 
         val bufferProfile = io.github.rubayet123.tvlive.data.StreamHealthConfig.getBufferProfile(this)
-        val (minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForRebufferMs) = when (bufferProfile) {
+        val (minBufferMs, maxBufferMs, baseBufferForPlaybackMs, bufferForRebufferMs) = when (bufferProfile) {
             "FAST_ZAPPING" -> listOf(5_000, 20_000, 500, 1_000)
             "HIGH_STABILITY" -> listOf(30_000, 90_000, 3_000, 5_000)
             else -> listOf(15_000, 50_000, 1_500, 2_000)
         }
 
+        // On cold-start connections, ensure bufferForPlayback has a sufficient safety cushion (2.5s min)
+        // to prevent premature playback starts and immediate underruns on slow networks
+        val initialPlaybackBufferMs = if (isInitialConnection) {
+            baseBufferForPlaybackMs.coerceAtLeast(2_500)
+        } else {
+            baseBufferForPlaybackMs
+        }
+
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForRebufferMs)
+            .setBufferDurationsMs(minBufferMs, maxBufferMs, initialPlaybackBufferMs, bufferForRebufferMs)
+            .setBackBuffer(10_000, true)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
@@ -2545,18 +2717,32 @@ class PlaybackActivity : FragmentActivity() {
             override fun onPlaybackStateChanged(state: Int) {
                 bufferLoader.visibility = if (state == Player.STATE_BUFFERING) View.VISIBLE else View.GONE
                 if (state == Player.STATE_BUFFERING) {
-                    startBufferingWatchdog()
+                    val timeoutSec = if (isInitialConnection) {
+                        io.github.rubayet123.tvlive.data.StreamHealthConfig.getInitialConnectTimeoutSec(this@PlaybackActivity)
+                    } else {
+                        io.github.rubayet123.tvlive.data.StreamHealthConfig.getStallTimeoutSec(this@PlaybackActivity)
+                    }
+                    startBufferingWatchdog(timeoutSec * 1000L)
                 } else {
                     cancelBufferingWatchdog()
                 }
                 if (state == Player.STATE_READY) {
+                    isInitialConnection = false
+                    hasAttemptedInPlaceRecovery = false
+                    lastPositionChangeTimeMs = android.os.SystemClock.uptimeMillis()
+                    lastPlaybackPosition = player?.currentPosition ?: -1L
+                    freezeCheckerHandler.removeCallbacks(freezeCheckerRunnable)
+                    freezeCheckerHandler.postDelayed(freezeCheckerRunnable, 1500)
                     singleStreamRetryCount = 0
                     hasAttempted403ScrapeRecovery = false
                     hudHideHandler.removeCallbacks(hudHideRunnable)
                     hudOverlayView?.visibility = View.GONE
-                    io.github.rubayet123.tvlive.data.StreamHealthManager.recordSuccess(url)
+                    val currentStreamUrl = activeSources.getOrNull(currentSourceIndex)?.streamUrl ?: url
+                    io.github.rubayet123.tvlive.data.StreamHealthManager.recordSuccess(currentStreamUrl)
                     updatePlayPauseButton()
                     updatePipParams()
+                } else if (state != Player.STATE_BUFFERING) {
+                    freezeCheckerHandler.removeCallbacks(freezeCheckerRunnable)
                 }
             }
 
@@ -2626,7 +2812,7 @@ class PlaybackActivity : FragmentActivity() {
 
                 if (isTimeoutOrUnreachable) {
                     val ch = currentPlayingChannel ?: io.github.rubayet123.tvlive.data.LiveTvManager.getCurrentChannel()
-                    if (ch != null && !hasAttempted403ScrapeRecovery && (ch.streamUrl.startsWith("roarzone://") || ch.streamUrl.startsWith("splex://") || ch.streamUrl.startsWith("redforce://") || ch.streamUrl.startsWith("damitv://"))) {
+                    if (ch != null && !hasAttempted403ScrapeRecovery && (ch.streamUrl.startsWith("roarzone://") || ch.streamUrl.startsWith("splex://") || ch.streamUrl.startsWith("redforce://") || ch.streamUrl.startsWith("damitv://") || ch.streamUrl.startsWith("playztv://"))) {
                         hasAttempted403ScrapeRecovery = true
                         handle403ScrapeRecovery(ch)
                         return
@@ -2741,6 +2927,24 @@ class PlaybackActivity : FragmentActivity() {
                         return@launch
                     }
                 }
+                urlToPlay.startsWith("playztv://") -> {
+                    val r = io.github.rubayet123.tvlive.scraper.PlayztvRepository(okHttpClient)
+                        .resolveStream(urlToPlay.substringAfter("playztv://"))
+                    if (r != null) urlToPlay = r else {
+                        withContext(Dispatchers.Main) {
+                            if (!attemptFailoverToNextSource("PlayZ TV resolution failed")) {
+                                val ch = currentPlayingChannel ?: io.github.rubayet123.tvlive.data.LiveTvManager.getCurrentChannel()
+                                if (ch != null && !hasAttempted403ScrapeRecovery) {
+                                    hasAttempted403ScrapeRecovery = true
+                                    handle403ScrapeRecovery(ch)
+                                } else {
+                                    handleSingleStreamRecovery("Stream resolution failed")
+                                }
+                            }
+                        }
+                        return@launch
+                    }
+                }
             }
             withContext(Dispatchers.Main) {
                 playerView.visibility = View.VISIBLE
@@ -2821,24 +3025,45 @@ class PlaybackActivity : FragmentActivity() {
 
     private fun createMediaItem(url: String, channel: io.github.rubayet123.tvlive.model.Channel?): MediaItem {
         val builder = MediaItem.Builder().setUri(url)
+            .setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder()
+                    .setMaxPlaybackSpeed(1.05f)
+                    .setMinPlaybackSpeed(0.95f)
+                    .build()
+            )
         val sUrl = url.lowercase()
         when {
-            sUrl.contains(".mpd")  -> builder.setMimeType(MimeTypes.APPLICATION_MPD)
+            sUrl.contains(".mpd") || sUrl.contains("/dash/") || sUrl.contains("manifest")
+                                   -> builder.setMimeType(MimeTypes.APPLICATION_MPD)
             sUrl.contains(".m3u8") || sUrl.contains("stvp") || sUrl.contains("jmp2.uk")
                                    -> builder.setMimeType(MimeTypes.APPLICATION_M3U8)
             sUrl.endsWith(".ts") || sUrl.contains("/ts2/") || sUrl.contains("video/mp2t")
                                    -> builder.setMimeType(MimeTypes.VIDEO_MP2T)
         }
-        if (channel != null && !channel.licenseKey.isNullOrEmpty()) {
+        val activeSource = channel?.effectiveSources?.getOrNull(currentSourceIndex)
+        val effectiveLicenseKey = activeSource?.licenseKey ?: channel?.licenseKey
+        if (!effectiveLicenseKey.isNullOrEmpty()) {
             try {
-                val parts = channel.licenseKey.split(":")
-                if (parts.size == 2) {
-                    val json    = "{\"keys\":[{\"kty\":\"oct\",\"k\":\"${hexToBase64Url(parts[1])}\",\"kid\":\"${hexToBase64Url(parts[0])}\"}]}"
-                    val dataUri = "data:application/json,$json"
+                if (effectiveLicenseKey.startsWith("http://") || effectiveLicenseKey.startsWith("https://")) {
                     builder.setDrmConfiguration(
                         MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
-                            .setLicenseUri(android.net.Uri.parse(dataUri)).build()
+                            .setLicenseUri(android.net.Uri.parse(effectiveLicenseKey))
+                            .build()
                     )
+                } else {
+                    val parts = effectiveLicenseKey.split(":")
+                    if (parts.size == 2) {
+                        val isHex0 = parts[0].replace("-", "").all { it in "0123456789abcdefABCDEF" } && (parts[0].replace("-", "").length % 2 == 0)
+                        val isHex1 = parts[1].replace("-", "").all { it in "0123456789abcdefABCDEF" } && (parts[1].replace("-", "").length % 2 == 0)
+                        val kidBase64 = if (isHex0) hexToBase64Url(parts[0]) else parts[0]
+                        val keyBase64 = if (isHex1) hexToBase64Url(parts[1]) else parts[1]
+                        val json    = "{\"keys\":[{\"kty\":\"oct\",\"k\":\"$keyBase64\",\"kid\":\"$kidBase64\"}]}"
+                        val dataUri = "data:application/json,$json"
+                        builder.setDrmConfiguration(
+                            MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
+                                .setLicenseUri(android.net.Uri.parse(dataUri)).build()
+                        )
+                    }
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -2969,6 +3194,14 @@ class PlaybackActivity : FragmentActivity() {
                 headers["Sec-Fetch-Dest"] = "empty"
                 headers["Sec-Fetch-Mode"] = "cors"
                 headers["Sec-Fetch-Site"] = "cross-site"
+                headers["Accept"]  = "*/*"
+            }
+            sUrl.contains("playztv") || sUrl.contains("playz.tv") || sUrl.startsWith("playztv://") -> {
+                userAgent          = "Mozilla/5.0 (Linux; Android 10; Mobile) Chrome/120.0.0.0 Safari/537.36"
+                headers["Referer"] = "https://playztv.com/"
+                headers["Origin"]  = "https://playztv.com"
+                headers["Sec-Fetch-Dest"] = "empty"
+                headers["Sec-Fetch-Mode"] = "cors"
                 headers["Accept"]  = "*/*"
             }
         }

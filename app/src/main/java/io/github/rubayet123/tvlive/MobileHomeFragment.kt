@@ -599,6 +599,8 @@ class MobileHomeFragment : Fragment() {
                             mutableStateListOf<Channel>().apply { addAll(filteredChannels) }
                         }
 
+                        val isPlayzCategory = selectedCategory.equals("Playz Live", ignoreCase = true)
+
                         when (selectedLayout) {
                             "3_COLUMNS" -> {
                                 val gridState = rememberLazyGridState()
@@ -624,10 +626,10 @@ class MobileHomeFragment : Fragment() {
 
                                 LazyVerticalGrid(
                                     state = gridState,
-                                    columns = GridCells.Fixed(3),
-                                    contentPadding = PaddingValues(10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    columns = if (isPlayzCategory) GridCells.Adaptive(minSize = 320.dp) else GridCells.Fixed(3),
+                                    contentPadding = PaddingValues(if (isPlayzCategory) 12.dp else 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(if (isPlayzCategory) 12.dp else 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(if (isPlayzCategory) 12.dp else 8.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     itemsIndexed(
@@ -636,31 +638,57 @@ class MobileHomeFragment : Fragment() {
                                     ) { index, channel ->
                                         val itemKey = "${channel.id}_${channel.streamUrl}_${channel.name}"
                                         val isFav = favoriteChannels.any { it.streamUrl == channel.streamUrl }
-                                        ChannelCardCompact(
-                                            channel = channel,
-                                            isFavorite = isFav,
-                                            onFavoriteToggle = {
-                                                if (isFav) {
-                                                    favoritesRepository.removeFavorite(channel)
-                                                } else {
-                                                    favoritesRepository.addFavorite(channel)
-                                                }
-                                                favoriteChannels = favoritesRepository.getFavorites()
-                                            },
-                                            onClick = {
-                                                LiveTvManager.updatePlaylist(displayChannels.toList(), index)
-                                                LiveTvManager.setCurrentChannelInMaster(channel)
-                                                LiveTvManager.addToRecent(channel)
-                                                
-                                                val intent = Intent(context, PlaybackActivity::class.java)
-                                                startActivity(intent)
-                                            },
-                                            onMoreOptionsClick = {
-                                                selectedChannelForQuickAction = channel
-                                            },
-                                            currentTheme = currentTheme,
-                                            modifier = Modifier.reorderableGridItem(reorderState, itemKey, index)
-                                        )
+                                        if (isPlayzCategory) {
+                                            PlayzMatchCard(
+                                                channel = channel,
+                                                isFavorite = isFav,
+                                                onFavoriteToggle = {
+                                                    if (isFav) {
+                                                        favoritesRepository.removeFavorite(channel)
+                                                    } else {
+                                                        favoritesRepository.addFavorite(channel)
+                                                    }
+                                                    favoriteChannels = favoritesRepository.getFavorites()
+                                                },
+                                                onClick = {
+                                                    LiveTvManager.updatePlaylist(displayChannels.toList(), index)
+                                                    LiveTvManager.setCurrentChannelInMaster(channel)
+                                                    LiveTvManager.addToRecent(channel)
+                                                    val intent = Intent(context, PlaybackActivity::class.java)
+                                                    startActivity(intent)
+                                                },
+                                                onMoreOptionsClick = {
+                                                    selectedChannelForQuickAction = channel
+                                                },
+                                                currentTheme = currentTheme,
+                                                modifier = Modifier.reorderableGridItem(reorderState, itemKey, index)
+                                            )
+                                        } else {
+                                            ChannelCardCompact(
+                                                channel = channel,
+                                                isFavorite = isFav,
+                                                onFavoriteToggle = {
+                                                    if (isFav) {
+                                                        favoritesRepository.removeFavorite(channel)
+                                                    } else {
+                                                        favoritesRepository.addFavorite(channel)
+                                                    }
+                                                    favoriteChannels = favoritesRepository.getFavorites()
+                                                },
+                                                onClick = {
+                                                    LiveTvManager.updatePlaylist(displayChannels.toList(), index)
+                                                    LiveTvManager.setCurrentChannelInMaster(channel)
+                                                    LiveTvManager.addToRecent(channel)
+                                                    val intent = Intent(context, PlaybackActivity::class.java)
+                                                    startActivity(intent)
+                                                },
+                                                onMoreOptionsClick = {
+                                                    selectedChannelForQuickAction = channel
+                                                },
+                                                currentTheme = currentTheme,
+                                                modifier = Modifier.reorderableGridItem(reorderState, itemKey, index)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -689,7 +717,7 @@ class MobileHomeFragment : Fragment() {
                                 LazyColumn(
                                     state = listState,
                                     contentPadding = PaddingValues(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(if (isPlayzCategory) 12.dp else 8.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     lazyListItemsIndexed(
@@ -698,31 +726,57 @@ class MobileHomeFragment : Fragment() {
                                     ) { index, channel ->
                                         val itemKey = "${channel.id}_${channel.streamUrl}_${channel.name}"
                                         val isFav = favoriteChannels.any { it.streamUrl == channel.streamUrl }
-                                        ChannelListItem(
-                                            channel = channel,
-                                            isFavorite = isFav,
-                                            onFavoriteToggle = {
-                                                if (isFav) {
-                                                    favoritesRepository.removeFavorite(channel)
-                                                } else {
-                                                    favoritesRepository.addFavorite(channel)
-                                                }
-                                                favoriteChannels = favoritesRepository.getFavorites()
-                                            },
-                                            onClick = {
-                                                LiveTvManager.updatePlaylist(displayChannels.toList(), index)
-                                                LiveTvManager.setCurrentChannelInMaster(channel)
-                                                LiveTvManager.addToRecent(channel)
-                                                
-                                                val intent = Intent(context, PlaybackActivity::class.java)
-                                                startActivity(intent)
-                                            },
-                                            onMoreOptionsClick = {
-                                                selectedChannelForQuickAction = channel
-                                            },
-                                            currentTheme = currentTheme,
-                                            modifier = Modifier.reorderableListItem(reorderState, itemKey, index)
-                                        )
+                                        if (isPlayzCategory) {
+                                            PlayzMatchCard(
+                                                channel = channel,
+                                                isFavorite = isFav,
+                                                onFavoriteToggle = {
+                                                    if (isFav) {
+                                                        favoritesRepository.removeFavorite(channel)
+                                                    } else {
+                                                        favoritesRepository.addFavorite(channel)
+                                                    }
+                                                    favoriteChannels = favoritesRepository.getFavorites()
+                                                },
+                                                onClick = {
+                                                    LiveTvManager.updatePlaylist(displayChannels.toList(), index)
+                                                    LiveTvManager.setCurrentChannelInMaster(channel)
+                                                    LiveTvManager.addToRecent(channel)
+                                                    val intent = Intent(context, PlaybackActivity::class.java)
+                                                    startActivity(intent)
+                                                },
+                                                onMoreOptionsClick = {
+                                                    selectedChannelForQuickAction = channel
+                                                },
+                                                currentTheme = currentTheme,
+                                                modifier = Modifier.reorderableListItem(reorderState, itemKey, index)
+                                            )
+                                        } else {
+                                            ChannelListItem(
+                                                channel = channel,
+                                                isFavorite = isFav,
+                                                onFavoriteToggle = {
+                                                    if (isFav) {
+                                                        favoritesRepository.removeFavorite(channel)
+                                                    } else {
+                                                        favoritesRepository.addFavorite(channel)
+                                                    }
+                                                    favoriteChannels = favoritesRepository.getFavorites()
+                                                },
+                                                onClick = {
+                                                    LiveTvManager.updatePlaylist(displayChannels.toList(), index)
+                                                    LiveTvManager.setCurrentChannelInMaster(channel)
+                                                    LiveTvManager.addToRecent(channel)
+                                                    val intent = Intent(context, PlaybackActivity::class.java)
+                                                    startActivity(intent)
+                                                },
+                                                onMoreOptionsClick = {
+                                                    selectedChannelForQuickAction = channel
+                                                },
+                                                currentTheme = currentTheme,
+                                                modifier = Modifier.reorderableListItem(reorderState, itemKey, index)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -750,8 +804,8 @@ class MobileHomeFragment : Fragment() {
 
                                 LazyVerticalGrid(
                                     state = gridState,
-                                    columns = GridCells.Fixed(2),
-                                    contentPadding = PaddingValues(16.dp),
+                                    columns = if (isPlayzCategory) GridCells.Adaptive(minSize = 320.dp) else GridCells.Fixed(2),
+                                    contentPadding = PaddingValues(if (isPlayzCategory) 12.dp else 16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
                                     modifier = Modifier.fillMaxSize()
@@ -762,31 +816,57 @@ class MobileHomeFragment : Fragment() {
                                     ) { index, channel ->
                                         val itemKey = "${channel.id}_${channel.streamUrl}_${channel.name}"
                                         val isFav = favoriteChannels.any { it.streamUrl == channel.streamUrl }
-                                        ChannelCard(
-                                            channel = channel,
-                                            isFavorite = isFav,
-                                            onFavoriteToggle = {
-                                                if (isFav) {
-                                                    favoritesRepository.removeFavorite(channel)
-                                                } else {
-                                                    favoritesRepository.addFavorite(channel)
-                                                }
-                                                favoriteChannels = favoritesRepository.getFavorites()
-                                            },
-                                            onClick = {
-                                                LiveTvManager.updatePlaylist(displayChannels.toList(), index)
-                                                LiveTvManager.setCurrentChannelInMaster(channel)
-                                                LiveTvManager.addToRecent(channel)
-                                                
-                                                val intent = Intent(context, PlaybackActivity::class.java)
-                                                startActivity(intent)
-                                            },
-                                            onMoreOptionsClick = {
-                                                selectedChannelForQuickAction = channel
-                                            },
-                                            currentTheme = currentTheme,
-                                            modifier = Modifier.reorderableGridItem(reorderState, itemKey, index)
-                                        )
+                                        if (isPlayzCategory) {
+                                            PlayzMatchCard(
+                                                channel = channel,
+                                                isFavorite = isFav,
+                                                onFavoriteToggle = {
+                                                    if (isFav) {
+                                                        favoritesRepository.removeFavorite(channel)
+                                                    } else {
+                                                        favoritesRepository.addFavorite(channel)
+                                                    }
+                                                    favoriteChannels = favoritesRepository.getFavorites()
+                                                },
+                                                onClick = {
+                                                    LiveTvManager.updatePlaylist(displayChannels.toList(), index)
+                                                    LiveTvManager.setCurrentChannelInMaster(channel)
+                                                    LiveTvManager.addToRecent(channel)
+                                                    val intent = Intent(context, PlaybackActivity::class.java)
+                                                    startActivity(intent)
+                                                },
+                                                onMoreOptionsClick = {
+                                                    selectedChannelForQuickAction = channel
+                                                },
+                                                currentTheme = currentTheme,
+                                                modifier = Modifier.reorderableGridItem(reorderState, itemKey, index)
+                                            )
+                                        } else {
+                                            ChannelCard(
+                                                channel = channel,
+                                                isFavorite = isFav,
+                                                onFavoriteToggle = {
+                                                    if (isFav) {
+                                                        favoritesRepository.removeFavorite(channel)
+                                                    } else {
+                                                        favoritesRepository.addFavorite(channel)
+                                                    }
+                                                    favoriteChannels = favoritesRepository.getFavorites()
+                                                },
+                                                onClick = {
+                                                    LiveTvManager.updatePlaylist(displayChannels.toList(), index)
+                                                    LiveTvManager.setCurrentChannelInMaster(channel)
+                                                    LiveTvManager.addToRecent(channel)
+                                                    val intent = Intent(context, PlaybackActivity::class.java)
+                                                    startActivity(intent)
+                                                },
+                                                onMoreOptionsClick = {
+                                                    selectedChannelForQuickAction = channel
+                                                },
+                                                currentTheme = currentTheme,
+                                                modifier = Modifier.reorderableGridItem(reorderState, itemKey, index)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1046,6 +1126,225 @@ class MobileHomeFragment : Fragment() {
     }
 
     @Composable
+    private fun PlayzMatchCard(
+        channel: Channel,
+        isFavorite: Boolean,
+        onFavoriteToggle: () -> Unit,
+        onClick: () -> Unit,
+        onMoreOptionsClick: (() -> Unit)? = null,
+        currentTheme: AppTheme,
+        modifier: Modifier = Modifier
+    ) {
+        val isLive = channel.name.startsWith("🔴")
+        val cleanName = channel.name.removePrefix("🔴").removePrefix("🔜").removePrefix("✅").trim()
+
+        val parts = channel.subtitle?.split(" • ")
+        val tournament = parts?.getOrNull(0)?.ifBlank { null }
+        val timeStr = parts?.getOrNull(1)?.ifBlank { null }
+
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = currentTheme.cardBg),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isLive) Color(0xFFEF4444).copy(alpha = 0.6f) else currentTheme.cardBg.copy(alpha = 0.6f)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (isLive) 4.dp else 2.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Top Header Row inside Card: Tournament Pill & Live / Kickoff Badge
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Surface(
+                        color = currentTheme.accent.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, currentTheme.accent.copy(alpha = 0.4f)),
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Text(
+                            text = tournament ?: "Playz Live",
+                            color = currentTheme.accent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    if (isLive) {
+                        Surface(
+                            color = Color(0xFFDC2626),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "LIVE",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+                    } else if (!timeStr.isNullOrBlank()) {
+                        Surface(
+                            color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
+                        ) {
+                            Text(
+                                text = "⏰ $timeStr",
+                                color = Color(0xFFFBBF24),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            color = currentTheme.primaryBg.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "UPCOMING",
+                                color = currentTheme.secondaryText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Match Poster / Banner (16:9)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            ImageView(ctx).apply {
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                            }
+                        },
+                        update = { imageView ->
+                            Glide.with(imageView.context)
+                                .load(channel.logoUrl)
+                                .placeholder(R.drawable.fallback_logo)
+                                .error(R.drawable.fallback_logo)
+                                .into(imageView)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    IconButton(
+                        onClick = onFavoriteToggle,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isFavorite) Color(0xFFEF4444) else Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Bottom Content: Match Title & Kickoff info
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = cleanName,
+                            color = currentTheme.primaryText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (!tournament.isNullOrBlank() && !timeStr.isNullOrBlank()) "$tournament • $timeStr" else (channel.subtitle ?: "Playz Live"),
+                            color = currentTheme.secondaryText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (channel.sources.size > 1) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            color = currentTheme.accent.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.5.dp, currentTheme.accent.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = "${channel.sources.size} Servers",
+                                color = currentTheme.accent,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    if (onMoreOptionsClick != null) {
+                        IconButton(
+                            onClick = onMoreOptionsClick,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More Options",
+                                tint = currentTheme.secondaryText,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
     private fun ChannelCard(
         channel: Channel,
         isFavorite: Boolean,
@@ -1055,6 +1354,10 @@ class MobileHomeFragment : Fragment() {
         currentTheme: AppTheme,
         modifier: Modifier = Modifier
     ) {
+        val isPlayz = channel.group.equals("Playz Live", ignoreCase = true) || !channel.subtitle.isNullOrBlank()
+        val isLive = channel.name.startsWith("🔴")
+        val cleanName = if (isPlayz) channel.name.removePrefix("🔴").removePrefix("🔜").removePrefix("✅").trim() else channel.name
+
         Card(
             modifier = modifier
                 .fillMaxWidth()
@@ -1062,7 +1365,10 @@ class MobileHomeFragment : Fragment() {
                 .clickable(onClick = onClick),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = currentTheme.cardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, currentTheme.cardBg.copy(alpha = 0.5f)),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isPlayz && isLive) Color(0xFFEF4444).copy(alpha = 0.5f) else currentTheme.cardBg.copy(alpha = 0.5f)
+            ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -1099,6 +1405,28 @@ class MobileHomeFragment : Fragment() {
                                 .fillMaxSize()
                                 .padding(8.dp)
                         )
+
+                        if (isPlayz && isLive) {
+                            Surface(
+                                color = Color(0xFFDC2626),
+                                shape = RoundedCornerShape(topStart = 10.dp, bottomEnd = 8.dp),
+                                modifier = Modifier.align(Alignment.TopStart)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color.White))
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "LIVE",
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1111,7 +1439,7 @@ class MobileHomeFragment : Fragment() {
                         horizontalAlignment = Alignment.Start
                     ) {
                         Text(
-                            text = channel.name,
+                            text = cleanName,
                             color = currentTheme.primaryText,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -1120,7 +1448,7 @@ class MobileHomeFragment : Fragment() {
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = channel.group?.ifBlank { "General" } ?: "General",
+                                text = channel.subtitle?.ifBlank { null } ?: channel.group?.ifBlank { "General" } ?: "General",
                                 color = currentTheme.accent,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
@@ -1199,6 +1527,10 @@ class MobileHomeFragment : Fragment() {
         currentTheme: AppTheme,
         modifier: Modifier = Modifier
     ) {
+        val isPlayz = channel.group.equals("Playz Live", ignoreCase = true) || !channel.subtitle.isNullOrBlank()
+        val isLive = channel.name.startsWith("🔴")
+        val cleanName = if (isPlayz) channel.name.removePrefix("🔴").removePrefix("🔜").removePrefix("✅").trim() else channel.name
+
         Card(
             modifier = modifier
                 .fillMaxWidth()
@@ -1206,7 +1538,10 @@ class MobileHomeFragment : Fragment() {
                 .clickable(onClick = onClick),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = currentTheme.cardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, currentTheme.cardBg.copy(alpha = 0.5f)),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isPlayz && isLive) Color(0xFFEF4444).copy(alpha = 0.5f) else currentTheme.cardBg.copy(alpha = 0.5f)
+            ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -1242,6 +1577,22 @@ class MobileHomeFragment : Fragment() {
                                 .fillMaxSize()
                                 .padding(4.dp)
                         )
+
+                        if (isPlayz && isLive) {
+                            Surface(
+                                color = Color(0xFFDC2626),
+                                shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 6.dp),
+                                modifier = Modifier.align(Alignment.TopStart)
+                            ) {
+                                Text(
+                                    text = "LIVE",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -1253,7 +1604,7 @@ class MobileHomeFragment : Fragment() {
                         horizontalAlignment = Alignment.Start
                     ) {
                         Text(
-                            text = channel.name,
+                            text = cleanName,
                             color = currentTheme.primaryText,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -1262,7 +1613,7 @@ class MobileHomeFragment : Fragment() {
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = channel.group?.ifBlank { "General" } ?: "General",
+                                text = channel.subtitle?.ifBlank { null } ?: channel.group?.ifBlank { "General" } ?: "General",
                                 color = currentTheme.accent,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
@@ -1339,6 +1690,10 @@ class MobileHomeFragment : Fragment() {
         currentTheme: AppTheme,
         modifier: Modifier = Modifier
     ) {
+        val isPlayz = channel.group.equals("Playz Live", ignoreCase = true) || !channel.subtitle.isNullOrBlank()
+        val isLive = channel.name.startsWith("🔴")
+        val cleanName = if (isPlayz) channel.name.removePrefix("🔴").removePrefix("🔜").removePrefix("✅").trim() else channel.name
+
         Card(
             modifier = modifier
                 .fillMaxWidth()
@@ -1346,7 +1701,10 @@ class MobileHomeFragment : Fragment() {
                 .clickable(onClick = onClick),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = currentTheme.cardBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, currentTheme.cardBg.copy(alpha = 0.5f)),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (isPlayz && isLive) Color(0xFFEF4444).copy(alpha = 0.5f) else currentTheme.cardBg.copy(alpha = 0.5f)
+            ),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Row(
@@ -1357,7 +1715,7 @@ class MobileHomeFragment : Fragment() {
             ) {
                 Box(
                     modifier = Modifier
-                        .size(width = 64.dp, height = 52.dp)
+                        .size(width = if (isPlayz) 80.dp else 64.dp, height = 52.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(currentTheme.primaryBg),
                     contentAlignment = Alignment.Center
@@ -1379,6 +1737,22 @@ class MobileHomeFragment : Fragment() {
                             .fillMaxSize()
                             .padding(4.dp)
                     )
+
+                    if (isPlayz && isLive) {
+                        Surface(
+                            color = Color(0xFFDC2626),
+                            shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 6.dp),
+                            modifier = Modifier.align(Alignment.TopStart)
+                        ) {
+                            Text(
+                                text = "LIVE",
+                                color = Color.White,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -1388,7 +1762,7 @@ class MobileHomeFragment : Fragment() {
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = channel.name,
+                        text = cleanName,
                         color = currentTheme.primaryText,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
@@ -1398,7 +1772,7 @@ class MobileHomeFragment : Fragment() {
                     Spacer(modifier = Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = channel.group?.ifBlank { "General" } ?: "General",
+                            text = channel.subtitle?.ifBlank { null } ?: channel.group?.ifBlank { "General" } ?: "General",
                             color = currentTheme.accent,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,

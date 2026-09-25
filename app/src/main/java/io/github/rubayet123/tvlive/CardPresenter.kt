@@ -85,11 +85,23 @@ class CardPresenter : Presenter() {
             if (item.name.isNotEmpty()) {
                 cardView.titleText = item.name
                 val categoryText = item.group ?: ""
-                cardView.contentText = if (item.sources.size > 1) {
+                val subtitleText = if (!item.subtitle.isNullOrBlank()) {
+                    item.subtitle
+                } else if (item.sources.size > 1) {
                     if (categoryText.isNotEmpty()) "$categoryText • ${item.sources.size} Sources" else "${item.sources.size} Sources"
                 } else {
                     categoryText
                 }
+                cardView.contentText = subtitleText
+
+                // Enhance typography for 10-foot TV viewing
+                val titleTv = cardView.findViewById<android.widget.TextView>(androidx.leanback.R.id.title_text)
+                val contentTv = cardView.findViewById<android.widget.TextView>(androidx.leanback.R.id.content_text)
+                titleTv?.textSize = 15f
+                titleTv?.typeface = android.graphics.Typeface.DEFAULT_BOLD
+                contentTv?.textSize = 12.5f
+                contentTv?.alpha = 0.95f
+
                 cardView.setMainImageDimensions(CARD_WIDTH, CARD_HEIGHT)
                 cardView.mainImageView?.let { imageView ->
                     Glide.with(viewHolder.view.context)
@@ -152,6 +164,12 @@ class CardPresenter : Presenter() {
         // during animations.
         view.setBackgroundColor(color)
         view.setInfoAreaBackgroundColor(color)
+        val contentTv = view.findViewById<android.widget.TextView>(androidx.leanback.R.id.content_text)
+        if (selected) {
+            contentTv?.setTextColor(Color.WHITE)
+        } else {
+            contentTv?.setTextColor(Color.parseColor("#CBD5E1"))
+        }
     }
 
     private fun findActivity(context: android.content.Context): androidx.fragment.app.FragmentActivity? {

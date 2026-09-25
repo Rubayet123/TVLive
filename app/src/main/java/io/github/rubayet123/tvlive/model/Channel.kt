@@ -11,7 +11,8 @@ data class Channel(
     val licenseType: String? = null,
     val licenseKey: String? = null,
     val headers: Map<String, String>? = null,
-    val sources: List<StreamSource> = emptyList()
+    val sources: List<StreamSource> = emptyList(),
+    val subtitle: String? = null
 ) : Serializable {
 
     val effectiveSources: List<StreamSource>
@@ -38,6 +39,7 @@ data class Channel(
                 return when {
                     r.contains("redforce") -> "Redforce TV"
                     r.contains("roarzone") -> "Roarzone TV"
+                    r.contains("playz") -> "PlayZ TV"
                     r.contains("ideal") -> "Ideal TV"
                     r.contains("orbit") -> "Orbit TV"
                     r.contains("splex") -> "Splex TV"
@@ -59,6 +61,7 @@ data class Channel(
             if (u.startsWith("roarzone://") || u.contains("roarzone") || g.contains("roarzone") || n.contains("roarzone")) return "Roarzone TV"
             if (u.startsWith("idealtv://") || u.contains("172.16.60.2") || g.contains("ideal tv") || n.contains("ideal tv")) return "Ideal TV"
             if (u.startsWith("damitv://") || u.contains("damitv") || u.contains("ondemand.st") || g.contains("damitv") || n.contains("damitv")) return "DAMITV"
+            if (u.startsWith("playztv://") || u.contains("playztv") || u.contains("playz.tv") || g.contains("playz") || n.contains("playz")) return "PlayZ TV"
             if (u.startsWith("splex://") || u.contains("splex") || g.contains("splex") || n.contains("splex")) return "Splex TV"
             if (u.startsWith("redforce://") || u.contains("redforce") || g.contains("redforce") || n.contains("redforce")) return "Redforce TV"
             if (u.contains("10.99.99.99") || u.contains("10.99.99.") || g.contains("bas tv") || n.contains("bas tv") || g.contains("local isp")) return "BAS TV"

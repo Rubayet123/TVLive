@@ -112,6 +112,12 @@ fun PluginSettingsScreen(onBack: () -> Unit) {
                 title = "DAMITV Global Live TV",
                 subtitle = "Worldwide Live TV & Sports channels with native TS unwrapper",
                 autoSyncPrefKey = "auto_scrape_damitv"
+            ),
+            PluginItemData(
+                key = "playztv",
+                title = "PlayZ TV (BDIX)",
+                subtitle = "Fast local BDIX sports, news & entertainment provider",
+                autoSyncPrefKey = "auto_scrape_playztv"
             )
         )
     }

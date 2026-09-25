@@ -13,7 +13,8 @@ object StreamHealthConfig {
     const val KEY_AUTO_SKIP_DEAD = "pref_stream_auto_skip_dead"
     
     const val KEY_WATCHDOG_ENABLED = "pref_stream_watchdog_enabled"
-    const val KEY_STALL_TIMEOUT_SEC = "pref_stream_stall_timeout_sec" // 3, 6, 10, 15
+    const val KEY_INITIAL_CONNECT_TIMEOUT_SEC = "pref_stream_initial_connect_timeout_sec" // 8, 10, 15
+    const val KEY_STALL_TIMEOUT_SEC = "pref_stream_stall_timeout_sec" // 3, 5, 8, 12
     
     const val KEY_AUTO_RECONNECT = "pref_stream_auto_reconnect"
     const val KEY_MAX_RECONNECT_ATTEMPTS = "pref_stream_max_reconnect_attempts" // 1, 3, 5
@@ -34,7 +35,7 @@ object StreamHealthConfig {
         getPrefs(context).edit().putBoolean(KEY_AUTO_SWITCH, enabled).apply()
 
     fun getFailoverMode(context: Context): String =
-        getPrefs(context).getString(KEY_FAILOVER_MODE, "SEQUENTIAL") ?: "SEQUENTIAL"
+        getPrefs(context).getString(KEY_FAILOVER_MODE, "CONCURRENT") ?: "CONCURRENT"
 
     fun setFailoverMode(context: Context, mode: String) =
         getPrefs(context).edit().putString(KEY_FAILOVER_MODE, mode).apply()
@@ -63,8 +64,14 @@ object StreamHealthConfig {
     fun setWatchdogEnabled(context: Context, enabled: Boolean) =
         getPrefs(context).edit().putBoolean(KEY_WATCHDOG_ENABLED, enabled).apply()
 
+    fun getInitialConnectTimeoutSec(context: Context): Int =
+        getPrefs(context).getInt(KEY_INITIAL_CONNECT_TIMEOUT_SEC, 10)
+
+    fun setInitialConnectTimeoutSec(context: Context, seconds: Int) =
+        getPrefs(context).edit().putInt(KEY_INITIAL_CONNECT_TIMEOUT_SEC, seconds).apply()
+
     fun getStallTimeoutSec(context: Context): Int =
-        getPrefs(context).getInt(KEY_STALL_TIMEOUT_SEC, 4)
+        getPrefs(context).getInt(KEY_STALL_TIMEOUT_SEC, 5)
 
     fun setStallTimeoutSec(context: Context, seconds: Int) =
         getPrefs(context).edit().putInt(KEY_STALL_TIMEOUT_SEC, seconds).apply()

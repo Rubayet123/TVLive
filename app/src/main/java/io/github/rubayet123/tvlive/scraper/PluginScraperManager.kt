@@ -33,7 +33,8 @@ object PluginScraperManager {
         PluginInfo("idealtv", "Ideal TV (172.16.60.2)", "idealtv.m3u", "auto_scrape_idealtv", "last_scrape_idealtv"),
         PluginInfo("orbittv", "Orbit TV (172.19.17.3)", "orbittv.m3u", "auto_scrape_orbittv", "last_scrape_orbittv"),
         PluginInfo("local_isp", "BAS TV (10.99.99.99)", "local_isp.m3u", "auto_scrape_local_isp", "last_scrape_local_isp"),
-        PluginInfo("damitv", "DAMITV Global Live TV", "damitv.m3u", "auto_scrape_damitv", "last_scrape_damitv")
+        PluginInfo("damitv", "DAMITV Global Live TV", "damitv.m3u", "auto_scrape_damitv", "last_scrape_damitv"),
+        PluginInfo("playztv", "PlayZ TV (BDIX)", "playztv.m3u", "auto_scrape_playztv", "last_scrape_playztv")
     )
 
     fun getPluginInfo(key: String): PluginInfo? {
@@ -43,40 +44,63 @@ object PluginScraperManager {
     fun isAutoScrapeEnabled(context: Context, key: String): Boolean {
         val info = getPluginInfo(key) ?: return false
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val defaultValue = (key.lowercase() == "damitv")
+        val defaultValue = (key.lowercase() == "playztv")
         return prefs.getBoolean(info.autoScrapePrefKey, defaultValue)
     }
 
     fun ensureDefaultPluginsInitialized(context: Context) {
         try {
-            val damitvInfo = getPluginInfo("damitv") ?: return
-            val file = File(context.filesDir, damitvInfo.fileName)
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            
-            // If damitv auto_scrape pref was never set, default to true
-            if (!prefs.contains(damitvInfo.autoScrapePrefKey)) {
-                prefs.edit().putBoolean(damitvInfo.autoScrapePrefKey, true).apply()
+            val sourceRepo = SourceRepository(context)
+            val sources = sourceRepo.getSources()
+
+            // Ensure damitv is disabled by default
+            val damitvInfo = getPluginInfo("damitv")
+            if (damitvInfo != null && !prefs.contains(damitvInfo.autoScrapePrefKey)) {
+                prefs.edit().putBoolean(damitvInfo.autoScrapePrefKey, false).apply()
+                val existing = sources.find { it.name == damitvInfo.displayName || it.url.contains("damitv.m3u") }
+                if (existing != null && existing.isActive) {
+                    sourceRepo.updateSource(existing.copy(isActive = false))
+                }
             }
 
-            // If damitv.m3u is missing or empty, immediately populate from bundled seed asset (< 10ms)
-            if (!file.exists() || file.length() < 100) {
-                val repo = DamitvRepository(NetworkClient.client, context)
-                val seedChannels = repo.loadSeedChannels(context)
-                if (seedChannels.isNotEmpty()) {
-                    val m3uContent = M3uBuilder.build(seedChannels)
-                    FileOutputStream(file).use {
-                        it.write(m3uContent.toByteArray(Charsets.UTF_8))
+            // Default plugin list to ensure enabled
+            val defaultPluginKeys = listOf("playztv")
+
+            for (key in defaultPluginKeys) {
+                val info = getPluginInfo(key) ?: continue
+                val file = File(context.filesDir, info.fileName)
+
+                // If auto_scrape pref was never set, default to true
+                if (!prefs.contains(info.autoScrapePrefKey)) {
+                    prefs.edit().putBoolean(info.autoScrapePrefKey, true).apply()
+                }
+
+                // If file is missing, empty, or contains dead URLs, populate with seed channels
+                val needsSeedUpdate = !file.exists() || file.length() < 100 || (key == "playztv" && try {
+                    val text = file.readText()
+                    text.contains("playztv.com/live/hls")
+                } catch (_: Exception) { true })
+                if (needsSeedUpdate) {
+                    val seedChannels = when (key) {
+                        "playztv" -> PlayztvRepository(NetworkClient.client).loadSeedChannels()
+                        else -> emptyList()
                     }
-                    val sourceRepo = SourceRepository(context)
-                    val sources = sourceRepo.getSources()
-                    val existing = sources.find { it.name == damitvInfo.displayName || it.url == file.absolutePath }
-                    if (existing == null) {
-                        sourceRepo.addSource(Source(damitvInfo.displayName, file.absolutePath, true, "M3U"))
-                    } else if (!existing.isActive) {
-                        sourceRepo.updateSource(existing.copy(isActive = true, url = file.absolutePath))
+
+                    if (seedChannels.isNotEmpty()) {
+                        val m3uContent = M3uBuilder.build(seedChannels)
+                        FileOutputStream(file).use {
+                            it.write(m3uContent.toByteArray(Charsets.UTF_8))
+                        }
+                        val existing = sources.find { it.name == info.displayName || it.url == file.absolutePath }
+                        if (existing == null) {
+                            sourceRepo.addSource(Source(info.displayName, file.absolutePath, true, "M3U"))
+                        } else if (!existing.isActive) {
+                            sourceRepo.updateSource(existing.copy(isActive = true, url = file.absolutePath))
+                        }
+                        updateLastScrapeTime(context, key)
+                        Log.i(TAG, "Pre-seeded ${seedChannels.size} $key channels instantly from plugin repository")
                     }
-                    updateLastScrapeTime(context, "damitv")
-                    Log.i(TAG, "Pre-seeded ${seedChannels.size} DAMITV channels instantly from bundled asset")
                 }
             }
         } catch (e: Exception) {
@@ -131,6 +155,10 @@ object PluginScraperManager {
                     val repo = DamitvRepository(client, context)
                     repo.fetchChannels(context)
                 }
+                "playztv" -> {
+                    val repo = PlayztvRepository(client, context)
+                    repo.fetchChannels(context)
+                }
                 else -> emptyList()
             }
 
@@ -172,7 +200,8 @@ object PluginScraperManager {
             if (isAutoScrapeEnabled(context, plugin.key)) {
                 val last = getLastScrapeTime(context, plugin.key)
                 val file = File(context.filesDir, plugin.fileName)
-                val isExpired = (now - last) >= maxAgeMs
+                val effectiveMaxAge = if (plugin.key == "playztv") 0L else maxAgeMs
+                val isExpired = (now - last) >= effectiveMaxAge
                 val fileMissing = !file.exists() || file.length() < 10
 
                 if (isExpired || fileMissing) {
@@ -219,6 +248,7 @@ object PluginScraperManager {
             url.startsWith("idealtv://") || url.contains("172.16.60.2") || group.contains("ideal tv") || name.contains("ideal tv") -> "idealtv"
             url.startsWith("orbittv://") || url.contains("172.19.17.3") || group.contains("orbit tv") || name.contains("orbit tv") -> "orbittv"
             url.startsWith("damitv://") || url.contains("damitv") || url.contains("ondemand.st") || group.contains("damitv") || name.contains("damitv") -> "damitv"
+            url.startsWith("playztv://") || url.contains("playztv") || url.contains("playz.tv") || group.contains("playz") || name.contains("playz") -> "playztv"
             url.contains("10.99.99.") || url.contains("10.200.") || url.contains("172.16.") || group.contains("bas tv") || name.contains("bas tv") || group.contains("local isp") || name.contains("local isp") || group.contains("isp tv") -> "local_isp"
             else -> null
         }

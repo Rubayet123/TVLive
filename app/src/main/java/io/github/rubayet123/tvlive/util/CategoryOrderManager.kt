@@ -90,9 +90,22 @@ object CategoryOrderManager {
     fun sortCategories(availableCategories: List<String>, context: Context): List<String> {
         if (availableCategories.isEmpty()) return emptyList()
 
+        val playzLive = availableCategories.firstOrNull { it.equals("Playz Live", ignoreCase = true) }
+        val sports = availableCategories.firstOrNull { it.equals("Sports", ignoreCase = true) }
+
         val savedOrder = getSavedCategoryOrder(context)
         if (savedOrder.isEmpty()) {
-            return availableCategories
+            val list = mutableListOf<String>()
+            if (sports != null) {
+                list.add(sports)
+                if (playzLive != null) list.add(playzLive)
+            } else if (playzLive != null) {
+                list.add(playzLive)
+            }
+            availableCategories.forEach { if (!list.contains(it) && !it.equals("Uncategorized", ignoreCase = true) && !it.equals("Playz Live", ignoreCase = true)) list.add(it) }
+            val uncategorized = availableCategories.firstOrNull { it.equals("Uncategorized", ignoreCase = true) }
+            if (uncategorized != null && !list.contains(uncategorized)) list.add(uncategorized)
+            return list
         }
 
         val availableSet = availableCategories.toSet()
@@ -106,8 +119,20 @@ object CategoryOrderManager {
         }
 
         // 2. Add remaining available categories that were not in savedOrder
-        val unlisted = availableCategories.filter { !sortedList.contains(it) && !it.equals("Uncategorized", ignoreCase = true) }
+        val unlisted = availableCategories.filter { !sortedList.contains(it) && !it.equals("Uncategorized", ignoreCase = true) && !it.equals("Playz Live", ignoreCase = true) }
         sortedList.addAll(unlisted)
+
+        // Position Playz Live right after Sports (or at position 1 / 2) so it is immediately visible on TV
+        if (playzLive != null) {
+            sortedList.remove(playzLive)
+            val sportsIdx = sortedList.indexOfFirst { it.equals("Sports", ignoreCase = true) }
+            if (sportsIdx != -1) {
+                sortedList.add(sportsIdx + 1, playzLive)
+            } else {
+                val insertIdx = if (sortedList.size > 1) 1 else sortedList.size
+                sortedList.add(insertIdx, playzLive)
+            }
+        }
 
         // 3. Keep "Uncategorized" at the end if present and not already positioned
         val uncategorized = availableCategories.firstOrNull { it.equals("Uncategorized", ignoreCase = true) }
@@ -127,6 +152,9 @@ object CategoryOrderManager {
         val trimmed = rawGroup?.trim()
         if (trimmed.isNullOrBlank()) {
             return "Uncategorized"
+        }
+        if (trimmed.equals("playz live", ignoreCase = true) || trimmed.equals("playzlive", ignoreCase = true)) {
+            return "Playz Live"
         }
         return trimmed.lowercase().replaceFirstChar { char ->
             if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString()
